@@ -2,24 +2,35 @@ package root
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var Viper = viper.New()
+var (
+	Viper  = viper.New()
+	Logger = logrus.New()
+)
 
 var (
 	cfgFile string
 )
 
-// This represents the base command when called without any subcommands
+// Cmd represents the base command when called without any subcommands
 var Cmd = &cobra.Command{
 	Use:   "app",
 	Short: "An amazing web service.",
 }
 
 func init() {
+	Logger.Formatter = &logrus.TextFormatter{}
+	Logger.Out = os.Stdout
+	Logger.Level = logrus.DebugLevel
+
+	Viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	cobra.OnInitialize(initConfig)
 	// Here you will define your flags and configuration settings
 	// Cobra supports Persistent Flags which if defined here will be global for your application
