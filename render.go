@@ -10,6 +10,11 @@ import (
 	"github.com/pquerna/ffjson/ffjson"
 )
 
+var APIJsonRendering = APIError{
+	Description: "The JSON rendering failed.",
+	ErrorCode:   "JSON_RENDERING_ERROR",
+}
+
 // Render is a ffjson based JSON renderer, customized to increase
 // the expressiveness of API error rendering.
 type Render struct{}
@@ -76,12 +81,10 @@ func (r *Render) renderJSON(w http.ResponseWriter, status int, object interface{
 
 func (r *Render) renderError(w http.ResponseWriter, err error) {
 	status := 500
-	apiErr := &APIError{
-		Status:      status,
-		Description: "The JSON rendering failed.",
-		Raw:         err.Error(),
-		ErrorCode:   "JSON_RENDERING_ERROR",
-	}
+
+	apiErr := ErrJsonRendering
+	apiErr.Status = status
+	apiErr.Raw = err.Error()
 
 	r.writeHeaders(w, status)
 

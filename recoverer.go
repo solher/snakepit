@@ -8,6 +8,11 @@ import (
 	"golang.org/x/net/context"
 )
 
+var APIInternal = APIError{
+	Description: "An internal error occured. Please retry later.",
+	ErrorCode:   "INTERNAL_ERROR",
+}
+
 type Recoverer struct {
 	r *Render
 }
@@ -21,8 +26,7 @@ func (rec *Recoverer) middleware(next chi.Handler) chi.Handler {
 	return chi.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if msg := recover(); msg != nil {
-				err := APIError{Description: "An internal error occured. Please retry later.", ErrorCode: "INTERNAL_ERROR"}
-				rec.r.JSONError(ctx, w, http.StatusInternalServerError, err, fmt.Errorf("%v", msg))
+				rec.r.JSONError(ctx, w, http.StatusInternalServerError, APIInternal, fmt.Errorf("%v", msg))
 			}
 		}()
 
