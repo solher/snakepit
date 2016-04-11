@@ -2,6 +2,10 @@ package snakepit
 
 import (
 	"net/http"
+	"runtime/debug"
+	"strings"
+
+	"golang.org/x/net/context"
 
 	"github.com/pquerna/ffjson/ffjson"
 )
@@ -16,9 +20,23 @@ func NewRender() *Render {
 }
 
 // JSONError forges and writes an APIError into the response writer.
-func (r *Render) JSONError(w http.ResponseWriter, status int, apiError APIError, err error) {
+func (r *Render) JSONError(ctx context.Context, w http.ResponseWriter, status int, apiError APIError, e error) {
+	entry, err := GetResLogEntry(ctx)
 	if err != nil {
-		apiError.Raw = err.Error()
+		panic(err)
+	}
+
+	if e != nil {
+		apiError.Raw = e.Error()
+		*entry = *entry.WithField("err", e.Error())
+	}
+
+	if status >= 500 && status < 600 {
+		stacktrace := string(debug.Stack())
+		split := strings.SplitAfterN(stacktrace, "\n", 6)
+		stacktrace = split[0] + split[5]
+
+		*entry = *entry.WithField("stacktrace", stacktrace)
 	}
 
 	apiError.Status = status
