@@ -5,14 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	Viper  = viper.New()
-	Logger = logrus.New()
+	Viper = viper.New()
 )
 
 var (
@@ -26,10 +24,6 @@ var Cmd = &cobra.Command{
 }
 
 func init() {
-	Logger.Formatter = &logrus.TextFormatter{}
-	Logger.Out = os.Stdout
-	Logger.Level = logrus.DebugLevel
-
 	Viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	cobra.OnInitialize(initConfig)
 	// Here you will define your flags and configuration settings
@@ -53,5 +47,11 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := Viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", Viper.ConfigFileUsed())
+	}
+}
+
+func Execute() {
+	if err := Cmd.Execute(); err != nil {
+		os.Exit(-1)
 	}
 }

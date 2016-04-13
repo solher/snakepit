@@ -1,7 +1,9 @@
 package run
 
 import (
+	"errors"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -21,6 +23,7 @@ const (
 var (
 	port    int
 	timeout time.Duration
+	Logger  = logrus.New()
 )
 
 var Builder func(v *viper.Viper, l *logrus.Logger) http.Handler
@@ -30,19 +33,23 @@ var Cmd = &cobra.Command{
 	Short: "Runs the service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if Builder == nil {
-			panic("nil builder func")
+			return errors.New("nil builder func")
 		}
 
-		root.Logger.Info("Initializing...")
-		appHandler := Builder(root.Viper, root.Logger)
+		Logger.Info("Building...")
+		appHandler := Builder(root.Viper, Logger)
 
-		root.Logger.Infof("Listening on :%d.", port)
+		Logger.Infof("Listening on port %d.", port)
 		graceful.Run(":"+strconv.Itoa(port), timeout, appHandler)
 		return nil
 	},
 }
 
 func init() {
+	Logger.Formatter = &logrus.TextFormatter{}
+	Logger.Out = os.Stdout
+	Logger.Level = logrus.DebugLevel
+
 	Cmd.PersistentFlags().IntVarP(&port, "port", "p", 3000, "listening port")
 	root.Viper.BindPFlag(Port, Cmd.PersistentFlags().Lookup("port"))
 
