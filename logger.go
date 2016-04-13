@@ -100,7 +100,7 @@ func (l *Logger) middleware(next chi.Handler) chi.Handler {
 		})
 
 		if status >= 500 && status < 600 {
-			entry.Error("An internal error occured.")
+			entry.Error("An unexpected error occured.")
 			return
 		}
 

@@ -8,8 +8,6 @@ type APIError struct {
 	Status int `json:"status"`
 	// The description of the API error.
 	Description string `json:"description"`
-	// A raw description of what triggered the API error.
-	Raw string `json:"raw"`
 	// The token uniquely identifying the API error.
 	ErrorCode string `json:"errorCode"`
 	// Additional infos.
@@ -27,4 +25,8 @@ type InternalError struct {
 
 func (e InternalError) Error() string {
 	return e.Description
+}
+
+func NewInternalError(d string) InternalError {
+	return InternalError{Description: d}
 }

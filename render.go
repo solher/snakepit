@@ -31,47 +31,40 @@ func (r *Render) JSONError(ctx context.Context, w http.ResponseWriter, status in
 		panic(err)
 	}
 
-	if e != nil {
-		apiError.Raw = e.Error()
-		*entry = *entry.WithField("err", e.Error())
-	}
+	*entry = *entry.WithError(e)
 
 	if status >= 500 && status < 600 {
-		stacktrace := string(debug.Stack())
-		split := strings.SplitAfterN(stacktrace, "\n", 6)
-		stacktrace = split[0] + split[5]
-
-		*entry = *entry.WithField("stacktrace", stacktrace)
+		*entry = *entry.WithField("stacktrace", r.stacktrace())
 	}
 
 	apiError.Status = status
 
-	r.renderJSON(w, status, apiError)
+	r.renderJSON(ctx, w, status, apiError)
 }
 
 // JSON writes the argument object into the response writer.
-func (r *Render) JSON(w http.ResponseWriter, status int, object interface{}) {
+func (r *Render) JSON(ctx context.Context, w http.ResponseWriter, status int, object interface{}) {
 	if object == nil {
 		w.WriteHeader(status)
 	} else {
-		r.renderJSON(w, status, object)
+		r.renderJSON(ctx, w, status, object)
 	}
 }
 
-func (r *Render) renderJSON(w http.ResponseWriter, status int, object interface{}) {
+func (r *Render) renderJSON(ctx context.Context, w http.ResponseWriter, status int, object interface{}) {
 	r.writeHeaders(w, status)
 
 	// Encode
 	buf, err := ffjson.Marshal(&object)
 	if err != nil {
-		r.renderError(w, err)
+		r.renderRenderingError(ctx, w, err)
 		return
 	}
 
 	// Write the buffer
 	_, err = w.Write(buf)
 	if err != nil {
-		r.renderError(w, err)
+		r.renderRenderingError(ctx, w, err)
 		return
 	}
 
@@ -79,12 +72,18 @@ func (r *Render) renderJSON(w http.ResponseWriter, status int, object interface{
 	ffjson.Pool(buf)
 }
 
-func (r *Render) renderError(w http.ResponseWriter, err error) {
+func (r *Render) renderRenderingError(ctx context.Context, w http.ResponseWriter, e error) {
+	entry, err := GetResLogEntry(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	*entry = *entry.WithError(e).WithField("stacktrace", r.stacktrace())
+
 	status := 500
 
-	apiErr := ErrJsonRendering
+	apiErr := APIJsonRendering
 	apiErr.Status = status
-	apiErr.Raw = err.Error()
 
 	r.writeHeaders(w, status)
 
@@ -101,4 +100,15 @@ func (r *Render) renderError(w http.ResponseWriter, err error) {
 func (r *Render) writeHeaders(w http.ResponseWriter, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
+}
+
+func (r *Render) stacktrace() string {
+	stacktrace := string(debug.Stack())
+
+	split := strings.SplitAfterN(stacktrace, "\n", 8)
+	if len(split) >= 8 {
+		stacktrace = split[0] + split[7]
+	}
+
+	return stacktrace
 }
