@@ -123,3 +123,7 @@ func (l *Logger) realIP(r *http.Request) string {
 
 	return ip
 }
+
+func LogTime(log *logrus.Entry, name string, start time.Time) {
+	log.WithField("latency", time.Now().Sub(start)).Debugf("%s time.", name)
+}

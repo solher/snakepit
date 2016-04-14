@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -26,28 +27,37 @@ func NewRender() *Render {
 
 // JSONError forges and writes an APIError into the response writer.
 func (r *Render) JSONError(ctx context.Context, w http.ResponseWriter, status int, apiError APIError, e error) {
-	entry, err := GetResLogEntry(ctx)
-	if err != nil {
-		panic(err)
-	}
+	if entry, err := GetResLogEntry(ctx); err == nil {
+		*entry = *entry.WithError(e)
 
-	*entry = *entry.WithError(e)
-
-	if status >= 500 && status < 600 {
-		*entry = *entry.WithField("stacktrace", r.stacktrace())
+		if status >= 500 && status < 600 {
+			*entry = *entry.WithField("stacktrace", r.stacktrace())
+		}
 	}
 
 	apiError.Status = status
 
+	start := time.Now()
+
 	r.renderJSON(ctx, w, status, apiError)
+
+	if logger, err := GetLogger(ctx); err == nil {
+		LogTime(logger, "Response rendering", start)
+	}
 }
 
 // JSON writes the argument object into the response writer.
 func (r *Render) JSON(ctx context.Context, w http.ResponseWriter, status int, object interface{}) {
+	start := time.Now()
+
 	if object == nil {
 		w.WriteHeader(status)
 	} else {
 		r.renderJSON(ctx, w, status, object)
+	}
+
+	if logger, err := GetLogger(ctx); err == nil {
+		LogTime(logger, "Response rendering", start)
 	}
 }
 
@@ -73,12 +83,9 @@ func (r *Render) renderJSON(ctx context.Context, w http.ResponseWriter, status i
 }
 
 func (r *Render) renderRenderingError(ctx context.Context, w http.ResponseWriter, e error) {
-	entry, err := GetResLogEntry(ctx)
-	if err != nil {
-		panic(err)
+	if entry, err := GetResLogEntry(ctx); err == nil {
+		*entry = *entry.WithError(e).WithField("stacktrace", r.stacktrace())
 	}
-
-	*entry = *entry.WithError(e).WithField("stacktrace", r.stacktrace())
 
 	status := 500
 
