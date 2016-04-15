@@ -14,11 +14,11 @@ var APIInternal = APIError{
 }
 
 type Recoverer struct {
-	r *Render
+	JSON *JSON
 }
 
-func NewRecoverer(r *Render) func(next chi.Handler) chi.Handler {
-	recoverer := &Recoverer{r: r}
+func NewRecoverer(j *JSON) func(next chi.Handler) chi.Handler {
+	recoverer := &Recoverer{JSON: j}
 	return recoverer.middleware
 }
 
@@ -26,7 +26,7 @@ func (rec *Recoverer) middleware(next chi.Handler) chi.Handler {
 	return chi.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if msg := recover(); msg != nil {
-				rec.r.JSONError(ctx, w, http.StatusInternalServerError, APIInternal, fmt.Errorf("%v", msg))
+				rec.JSON.RenderError(ctx, w, http.StatusInternalServerError, APIInternal, fmt.Errorf("%v", msg))
 			}
 		}()
 

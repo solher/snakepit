@@ -125,5 +125,7 @@ func (l *Logger) realIP(r *http.Request) string {
 }
 
 func LogTime(log *logrus.Entry, name string, start time.Time) {
-	log.WithField("latency", time.Now().Sub(start)).Debugf("%s time.", name)
+	if log != nil {
+		log.WithField("latency", time.Now().Sub(start)).Debugf("%s time.", name)
+	}
 }
