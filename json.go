@@ -1,6 +1,7 @@
 package snakepit
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/ansel1/merry"
 	"github.com/pquerna/ffjson/ffjson"
 )
 
@@ -39,10 +41,11 @@ func (j *JSON) RenderError(
 	e error,
 ) {
 	if entry, err := GetResLogEntry(ctx); err == nil {
-		*entry = *entry.WithError(e)
+		file, line := merry.Location(e)
+		*entry = *entry.WithError(e).WithField("location", fmt.Sprintf("%s:%d", file, line))
 
 		if status >= 500 && status < 600 {
-			*entry = *entry.WithField("stacktrace", j.stacktrace())
+			*entry = *entry.WithField("stacktrace", merry.Details(e))
 		}
 	}
 

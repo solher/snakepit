@@ -17,16 +17,3 @@ type APIError struct {
 func (e APIError) Error() string {
 	return fmt.Sprintf("%s : %s", e.ErrorCode, e.Description)
 }
-
-type InternalError struct {
-	Description string
-	Params      map[string]interface{}
-}
-
-func (e InternalError) Error() string {
-	return e.Description
-}
-
-func NewInternalError(d string) InternalError {
-	return InternalError{Description: d}
-}
