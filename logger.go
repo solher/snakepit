@@ -11,6 +11,14 @@ import (
 	"golang.org/x/net/context"
 )
 
+var dumbLogger *logrus.Entry
+
+func init() {
+	l := logrus.New()
+	l.Out = nil
+	dumbLogger = logrus.NewEntry(l)
+}
+
 const (
 	contextLogger      CtxKey = "logger"
 	contextResLogEntry CtxKey = "logEntry"
@@ -18,16 +26,16 @@ const (
 
 func GetLogger(ctx context.Context) (*logrus.Entry, error) {
 	if ctx == nil {
-		return nil, errors.New("nil context")
+		return dumbLogger, errors.New("nil context")
 	}
 
 	logger, ok := ctx.Value(contextLogger).(*logrus.Entry)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return dumbLogger, errors.New("unexpected type")
 	}
 
 	if logger == nil {
-		return nil, errors.New("nil value in context")
+		return dumbLogger, errors.New("nil value in context")
 	}
 
 	return logger, nil
@@ -35,16 +43,16 @@ func GetLogger(ctx context.Context) (*logrus.Entry, error) {
 
 func GetResLogEntry(ctx context.Context) (*logrus.Entry, error) {
 	if ctx == nil {
-		return nil, errors.New("nil context")
+		return dumbLogger, errors.New("nil context")
 	}
 
 	entry, ok := ctx.Value(contextResLogEntry).(*logrus.Entry)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return dumbLogger, errors.New("unexpected type")
 	}
 
 	if entry == nil {
-		return nil, errors.New("nil value in context")
+		return dumbLogger, errors.New("nil value in context")
 	}
 
 	return entry, nil
