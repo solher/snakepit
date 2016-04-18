@@ -1,9 +1,9 @@
 package snakepit
 
 import (
-	"fmt"
 	"net/http"
 
+	"github.com/ansel1/merry"
 	"github.com/pressly/chi"
 	"golang.org/x/net/context"
 )
@@ -26,7 +26,8 @@ func (rec *Recoverer) middleware(next chi.Handler) chi.Handler {
 	return chi.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if msg := recover(); msg != nil {
-				rec.JSON.RenderError(ctx, w, http.StatusInternalServerError, APIInternal, fmt.Errorf("%v", msg))
+				err := merry.Errorf("%v", msg).WithStackSkipping(5)
+				rec.JSON.RenderError(ctx, w, http.StatusInternalServerError, APIInternal, err)
 			}
 		}()
 

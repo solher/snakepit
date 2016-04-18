@@ -1,6 +1,10 @@
 package snakepit
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/ansel1/merry"
+)
 
 // APIError defines a standard format for API errors.
 type APIError struct {
@@ -16,4 +20,10 @@ type APIError struct {
 
 func (e APIError) Error() string {
 	return fmt.Sprintf("%s : %s", e.ErrorCode, e.Description)
+}
+
+func NewValidationError(field, err string) error {
+	return merry.Errorf("%s cannot be %s", field, err).
+		WithValue("field", field).
+		WithValue("error", err)
 }

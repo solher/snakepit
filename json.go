@@ -50,6 +50,14 @@ func (j *JSON) RenderError(
 	}
 
 	apiError.Status = status
+	apiError.Params = make(map[string]interface{})
+
+	for k, v := range merry.Values(e) {
+		strKey, ok := k.(string)
+		if ok {
+			apiError.Params[strKey] = v
+		}
+	}
 
 	j.renderJSON(ctx, w, status, apiError)
 }
@@ -94,7 +102,7 @@ func (j *JSON) UnmarshalBodyBulk(
 	logger, _ := GetLogger(ctx)
 	buffer, _ := ioutil.ReadAll(body)
 
-	if buffer[0] != '[' && buffer[len(buffer)] != ']' {
+	if buffer[0] != '[' && buffer[len(buffer)-1] != ']' {
 		buffer = append(append([]byte{'['}, buffer...), ']')
 	} else {
 		bulk = true
