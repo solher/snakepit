@@ -1,6 +1,6 @@
 `snakepit` is a [cobra](https://github.com/spf13/cobra)/[viper](https://github.com/spf13/viper) commands repository and a productivity oriented toolbox.
 
-Example API seed: [snakepit-seed](https://github.com/solher/snakepit-seed)
+API example seed: [snakepit-seed](https://github.com/solher/snakepit-seed)
 
 ## Commands
 ### Root
