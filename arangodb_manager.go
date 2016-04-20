@@ -17,22 +17,22 @@ const (
 
 type Seed interface{}
 
-type ArangoDB struct {
+type ArangoDBManager struct {
 	db                     *arangolite.DB
 	localSeed, distantSeed Seed
 	URL, Name              string
 	User, UserPassword     string
 }
 
-func NewArangoDB(localSeed, distantSeed Seed) *ArangoDB {
-	return &ArangoDB{
+func NewArangoDBManager(localSeed, distantSeed Seed) *ArangoDBManager {
+	return &ArangoDBManager{
 		db:          arangolite.New(),
 		localSeed:   localSeed,
 		distantSeed: distantSeed,
 	}
 }
 
-func (d *ArangoDB) Connect(url, name, user, userPassword string) *ArangoDB {
+func (d *ArangoDBManager) Connect(url, name, user, userPassword string) *ArangoDBManager {
 	d.URL = url
 	d.Name = name
 	d.User = user
@@ -43,24 +43,20 @@ func (d *ArangoDB) Connect(url, name, user, userPassword string) *ArangoDB {
 	return d
 }
 
-func (d *ArangoDB) LoggerOptions(enabled, printQuery, printResult bool) *ArangoDB {
+func (d *ArangoDBManager) LoggerOptions(enabled, printQuery, printResult bool) *ArangoDBManager {
 	d.db.LoggerOptions(enabled, printQuery, printResult)
 	return d
 }
 
-func (d *ArangoDB) Run(q arangolite.Runnable) ([]byte, error) {
+func (d *ArangoDBManager) Run(q arangolite.Runnable) ([]byte, error) {
 	return d.db.Run(q)
 }
 
-func (d *ArangoDB) RunAsync(q arangolite.Runnable) (*arangolite.Result, error) {
-	return d.db.RunAsync(q)
-}
-
-func (d *ArangoDB) Create(rootUser, rootPassword string) error {
+func (d *ArangoDBManager) Create(rootUser, rootPassword string) error {
 	d.db.SwitchDatabase("_system").SwitchUser(rootUser, rootPassword)
 	defer func() { d.db.SwitchDatabase(d.Name).SwitchUser(d.User, d.UserPassword) }()
 
-	_, err := d.Run(&arangolite.CreateDatabase{
+	_, err := d.db.Run(&arangolite.CreateDatabase{
 		Name: d.Name,
 		Users: []map[string]interface{}{
 			{"username": rootUser, "passwd": rootPassword},
@@ -75,7 +71,7 @@ func (d *ArangoDB) Create(rootUser, rootPassword string) error {
 	return nil
 }
 
-func (d *ArangoDB) Migrate() error {
+func (d *ArangoDBManager) Migrate() error {
 	local := reflect.ValueOf(d.localSeed)
 
 	if local.Kind() != reflect.Ptr {
@@ -110,7 +106,7 @@ func (d *ArangoDB) Migrate() error {
 			colType = colTypeEdge
 		}
 
-		_, err := d.Run(&arangolite.CreateCollection{
+		_, err := d.db.Run(&arangolite.CreateCollection{
 			Name: colName,
 			Type: colType,
 		})
@@ -122,11 +118,11 @@ func (d *ArangoDB) Migrate() error {
 	return nil
 }
 
-func (d *ArangoDB) Drop(rootUser, rootPassword string) error {
+func (d *ArangoDBManager) Drop(rootUser, rootPassword string) error {
 	d.db.SwitchDatabase("_system").SwitchUser(rootUser, rootPassword)
 	defer func() { d.db.SwitchDatabase(d.Name).SwitchUser(d.User, d.UserPassword) }()
 
-	_, err := d.Run(&arangolite.DropDatabase{Name: d.Name})
+	_, err := d.db.Run(&arangolite.DropDatabase{Name: d.Name})
 	if err != nil {
 		return err
 	}
@@ -134,7 +130,7 @@ func (d *ArangoDB) Drop(rootUser, rootPassword string) error {
 	return nil
 }
 
-func (d *ArangoDB) LoadDistantSeed() error {
+func (d *ArangoDBManager) LoadDistantSeed() error {
 	local := reflect.ValueOf(d.localSeed)
 	distant := reflect.ValueOf(d.distantSeed)
 
@@ -170,15 +166,6 @@ func (d *ArangoDB) LoadDistantSeed() error {
 		colName := local.Type().Field(i).Name
 		colName = strings.ToLower(colName[0:1]) + colName[1:]
 
-		// util.Dump(string(m))
-
-		// q := arangolite.NewQuery(`
-		// 			FOR x IN %s
-		// 				FOR y IN %s
-		// 				LET merged = MERGE(x, y)
-		// 				FILTER MATCHES(x, merged)
-		// 				RETURN x
-		// 		`, colName, m)
 		var q *arangolite.Query
 
 		if local.Type().Field(i).Tag.Get("check") == "keyOnly" {
@@ -200,7 +187,7 @@ func (d *ArangoDB) LoadDistantSeed() error {
 			`).Bind("seed", localField.Interface()).Bind("@colName", colName)
 		}
 
-		r, err := d.Run(q)
+		r, err := d.db.Run(q)
 		if err != nil {
 			return err
 		}
@@ -215,7 +202,7 @@ func (d *ArangoDB) LoadDistantSeed() error {
 	return nil
 }
 
-func (d *ArangoDB) SyncSeeds() error {
+func (d *ArangoDBManager) SyncSeeds() error {
 	local := reflect.ValueOf(d.localSeed)
 
 	if local.Kind() != reflect.Ptr {
@@ -266,7 +253,7 @@ func (d *ArangoDB) SyncSeeds() error {
 			`).Bind("seed", field.Interface()).Bind("@colName", colName)
 		}
 
-		if _, err := d.Run(q); err != nil {
+		if _, err := d.db.Run(q); err != nil {
 			return err
 		}
 	}
