@@ -23,7 +23,7 @@ func (rec *Swagger) middleware(next chi.Handler) chi.Handler {
 
 			file := "./swagger.json"
 			if _, err := os.Stat(file); os.IsNotExist(err) {
-				file = "~/swagger.json"
+				file = "$HOME/swagger.json"
 			}
 
 			http.ServeFile(w, r, file)
