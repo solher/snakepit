@@ -21,9 +21,7 @@ const (
 )
 
 var (
-	port    int
-	timeout time.Duration
-	Logger  = logrus.New()
+	Logger = logrus.New()
 )
 
 var Builder func(v *viper.Viper, l *logrus.Logger) http.Handler
@@ -36,8 +34,11 @@ var Cmd = &cobra.Command{
 			return errors.New("nil builder func")
 		}
 
-		Logger.Info("Building...")
+		Logger.Infof("Building...")
 		appHandler := Builder(root.Viper, Logger)
+
+		port := root.Viper.GetInt(Port)
+		timeout := root.Viper.GetDuration(Timeout)
 
 		Logger.Infof("Listening on port %d.", port)
 		graceful.Run(":"+strconv.Itoa(port), timeout, appHandler)
@@ -50,9 +51,9 @@ func init() {
 	Logger.Out = os.Stdout
 	Logger.Level = logrus.DebugLevel
 
-	Cmd.PersistentFlags().IntVarP(&port, "port", "p", 3000, "listening port")
+	Cmd.PersistentFlags().IntP("port", "p", 3000, "listening port")
 	root.Viper.BindPFlag(Port, Cmd.PersistentFlags().Lookup("port"))
 
-	Cmd.PersistentFlags().DurationVar(&timeout, "timeout", 10*time.Second, "graceful shutdown timeout (0 for infinite)")
+	Cmd.PersistentFlags().Duration("timeout", 5*time.Second, "graceful shutdown timeout (0 for infinite)")
 	root.Viper.BindPFlag(Timeout, Cmd.PersistentFlags().Lookup("timeout"))
 }
