@@ -8,10 +8,17 @@ import (
 	"golang.org/x/net/context"
 )
 
-type Swagger struct{}
+type Swagger struct {
+	path string
+}
 
 func NewSwagger() func(next chi.Handler) chi.Handler {
-	swagger := &Swagger{}
+	path := "./swagger.json"
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		path = os.Getenv("HOME") + "/swagger.json"
+	}
+
+	swagger := &Swagger{path: path}
 	return swagger.middleware
 }
 
@@ -21,12 +28,7 @@ func (rec *Swagger) middleware(next chi.Handler) chi.Handler {
 			w.Header().Add("Access-Control-Allow-Origin", "*")
 			w.Header().Add("Access-Control-Allow-Methods", "GET")
 
-			file := "./swagger.json"
-			if _, err := os.Stat(file); os.IsNotExist(err) {
-				file = "$HOME/swagger.json"
-			}
-
-			http.ServeFile(w, r, file)
+			http.ServeFile(w, r, rec.path)
 			return
 		}
 
