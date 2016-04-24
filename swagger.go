@@ -2,6 +2,7 @@ package snakepit
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/pressly/chi"
 	"golang.org/x/net/context"
@@ -19,7 +20,13 @@ func (rec *Swagger) middleware(next chi.Handler) chi.Handler {
 		if r.URL.Path == "/swagger" {
 			w.Header().Add("Access-Control-Allow-Origin", "*")
 			w.Header().Add("Access-Control-Allow-Methods", "GET")
-			http.ServeFile(w, r, "./swagger.json")
+
+			file := "./swagger.json"
+			if _, err := os.Stat(file); os.IsNotExist(err) {
+				file = "~/swagger.json"
+			}
+
+			http.ServeFile(w, r, file)
 			return
 		}
 
