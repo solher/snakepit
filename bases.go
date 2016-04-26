@@ -1,6 +1,8 @@
 package snakepit
 
 import (
+	"time"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -15,6 +17,10 @@ type (
 		Constants *viper.Viper
 		Logger    *logrus.Entry
 		JSON      *JSON
+	}
+
+	Validator struct {
+		Logger *logrus.Entry
 	}
 
 	Interactor struct {
@@ -49,6 +55,18 @@ func NewController(
 		Logger:    l,
 		JSON:      j,
 	}
+}
+
+func NewValidator(
+	l *logrus.Entry,
+) *Validator {
+	return &Validator{
+		Logger: l,
+	}
+}
+
+func (v *Validator) LogTime(start time.Time) {
+	LogTime(v.Logger, "Validation", start)
 }
 
 func NewInteractor(
