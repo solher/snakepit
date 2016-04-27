@@ -45,6 +45,10 @@ func NewHandler(
 	}
 }
 
+func (h *Handler) LogTime(logger *logrus.Entry, start time.Time) {
+	LogTime(logger, "Handler building", start)
+}
+
 func NewController(
 	c *viper.Viper,
 	l *logrus.Entry,
