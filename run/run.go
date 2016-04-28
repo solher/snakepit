@@ -24,7 +24,7 @@ var (
 	Logger = logrus.New()
 )
 
-var Builder func(v *viper.Viper, l *logrus.Logger) http.Handler
+var Builder func(v *viper.Viper, l *logrus.Logger) (http.Handler, error)
 
 var Cmd = &cobra.Command{
 	Use:   "run",
@@ -35,7 +35,10 @@ var Cmd = &cobra.Command{
 		}
 
 		Logger.Infof("Building...")
-		appHandler := Builder(root.Viper, Logger)
+		appHandler, err := Builder(root.Viper, Logger)
+		if err != nil {
+			return err
+		}
 
 		port := root.Viper.GetInt(Port)
 		timeout := root.Viper.GetDuration(Timeout)
