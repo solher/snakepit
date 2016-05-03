@@ -50,9 +50,13 @@ var Cmd = &cobra.Command{
 }
 
 func init() {
+	root.Cmd.AddCommand(Cmd)
+
 	Logger.Formatter = &logrus.TextFormatter{}
 	Logger.Out = os.Stdout
 	Logger.Level = logrus.DebugLevel
+
+	root.Cmd.RunE = Cmd.RunE
 
 	Cmd.PersistentFlags().IntP("port", "p", 3000, "listening port")
 	root.Viper.BindPFlag(Port, Cmd.PersistentFlags().Lookup("port"))
