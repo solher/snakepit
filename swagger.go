@@ -58,12 +58,11 @@ func NewSwagger(basePath, scheme string) func(next chi.Handler) chi.Handler {
 func (rec *Swagger) middleware(next chi.Handler) chi.Handler {
 	return chi.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/swagger" {
-			w.WriteHeader(200)
-
-			w.Header().Add("Access-Control-Allow-Origin", "*")
-			w.Header().Add("Access-Control-Allow-Methods", "GET")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET")
 			w.Header().Set("Content-Type", "application/json")
 
+			w.WriteHeader(200)
 			w.Write(rec.conf)
 
 			return
