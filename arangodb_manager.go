@@ -153,10 +153,6 @@ func (d *ArangoDBManager) LoadDistantSeed() error {
 			continue
 		}
 
-		if localField.Len() == 0 {
-			continue
-		}
-
 		arrayElem := localField.Type().Elem()
 
 		if arrayElem.Kind() != reflect.Struct {
