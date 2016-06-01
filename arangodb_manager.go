@@ -110,7 +110,7 @@ func (d *ArangoDBManager) Migrate() error {
 			Name: colName,
 			Type: colType,
 		})
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "duplicate name") {
 			return err
 		}
 	}
