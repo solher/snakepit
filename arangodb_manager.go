@@ -167,7 +167,7 @@ func (d *ArangoDBManager) LoadDistantSeed() error {
 		if local.Type().Field(i).Tag.Get("check") == "keyOnly" {
 			q = arangolite.NewQuery(`
 				FOR x IN @@colName
-					FOR y IN @seed
+					FOR y IN @seed != null ? @seed : []
 					FILTER x._key == y._key
 					RETURN DISTINCT x
 			`).Bind("seed", localField.Interface()).Bind("@colName", colName)
@@ -175,7 +175,7 @@ func (d *ArangoDBManager) LoadDistantSeed() error {
 			q = arangolite.NewQuery(`
 				FOR x IN @@colName
 				LET i = UNSET(x,"_id","_rev")
-					FOR y IN @seed
+					FOR y IN @seed != null ? @seed : []
 					LET j = UNSET(y,"_id","_rev")
 					LET merged = MERGE(i,j)
 					FILTER MATCHES(i, merged)
