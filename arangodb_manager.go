@@ -64,7 +64,7 @@ func (d *ArangoDBManager) Create(rootUser, rootPassword string) error {
 		},
 	})
 
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "duplicate name") {
 		return err
 	}
 
