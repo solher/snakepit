@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"gopkg.in/tylerb/graceful.v1"
+	"github.com/tylerb/graceful"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/solher/snakepit/root"
@@ -52,7 +52,9 @@ var Cmd = &cobra.Command{
 func init() {
 	root.Cmd.AddCommand(Cmd)
 
-	Logger.Formatter = &logrus.TextFormatter{}
+	Logger.Formatter = &logrus.TextFormatter{
+		ForceColors: true,
+	}
 	Logger.Out = os.Stdout
 	Logger.Level = logrus.DebugLevel
 
