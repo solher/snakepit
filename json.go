@@ -1,6 +1,7 @@
 package snakepit
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -101,6 +102,11 @@ func (j *JSON) UnmarshalBodyBulk(
 	bulk := false
 	logger, _ := GetLogger(ctx)
 	buffer, _ := ioutil.ReadAll(body)
+
+	if len(buffer) < 2 {
+		j.RenderError(ctx, w, http.StatusBadRequest, APIBodyDecoding, errors.New("empty or invalid body"))
+		return false, false
+	}
 
 	if buffer[0] != '[' && buffer[len(buffer)-1] != ']' {
 		buffer = append(append([]byte{'['}, buffer...), ']')
