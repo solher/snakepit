@@ -1,13 +1,14 @@
 package snakepit
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/solher/arangolite"
+	"github.com/solher/arangolite/requests"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 type Seed interface{}
 
 type ArangoDBManager struct {
-	db                     *arangolite.DB
+	db                     *arangolite.Database
 	localSeed, distantSeed Seed
 	URL, Name              string
 	User, UserPassword     string
@@ -26,37 +27,52 @@ type ArangoDBManager struct {
 
 func NewArangoDBManager(localSeed, distantSeed Seed) *ArangoDBManager {
 	return &ArangoDBManager{
-		db:          arangolite.New(),
+		db:          arangolite.NewDatabase(),
 		localSeed:   localSeed,
 		distantSeed: distantSeed,
 	}
 }
 
-func (d *ArangoDBManager) Connect(url, name, user, userPassword string) *ArangoDBManager {
+func (d *ArangoDBManager) Connect(ctx context.Context, url, name, user, userPassword string) (*ArangoDBManager, error) {
 	d.URL = url
 	d.Name = name
 	d.User = user
 	d.UserPassword = userPassword
 
-	d.db.Connect(url, name, user, userPassword)
+	d.db.Options(
+		arangolite.OptBasicAuth(user, userPassword),
+		arangolite.OptDatabaseName(name),
+		arangolite.OptEndpoint(url),
+	)
 
-	return d
+	if err := d.db.Connect(ctx); err != nil {
+		return nil, err
+	}
+
+	return d, nil
 }
 
-func (d *ArangoDBManager) LoggerOptions(enabled, printQuery, printResult bool) *ArangoDBManager {
-	d.db.LoggerOptions(enabled, printQuery, printResult)
-	return d
+func (d *ArangoDBManager) Options(opts ...arangolite.Option) {
+	d.db.Options(opts...)
 }
 
-func (d *ArangoDBManager) Run(q arangolite.Runnable) ([]byte, error) {
-	return d.db.Run(q)
+func (d *ArangoDBManager) Run(ctx context.Context, v interface{}, q arangolite.Runnable) error {
+	return d.db.Run(ctx, v, q)
 }
 
-func (d *ArangoDBManager) Create(rootUser, rootPassword string) error {
-	d.db.SwitchDatabase("_system").SwitchUser(rootUser, rootPassword)
-	defer func() { d.db.SwitchDatabase(d.Name).SwitchUser(d.User, d.UserPassword) }()
+func (d *ArangoDBManager) Create(ctx context.Context, rootUser, rootPassword string) error {
+	d.db.Options(
+		arangolite.OptBasicAuth(rootUser, rootPassword),
+		arangolite.OptDatabaseName("_system"),
+	)
+	defer func() {
+		d.db.Options(
+			arangolite.OptBasicAuth(d.User, d.UserPassword),
+			arangolite.OptDatabaseName(d.Name),
+		)
+	}()
 
-	_, err := d.db.Run(&arangolite.CreateDatabase{
+	err := d.db.Run(ctx, nil, &requests.CreateDatabase{
 		Name: d.Name,
 		Users: []map[string]interface{}{
 			{"username": rootUser, "passwd": rootPassword},
@@ -71,7 +87,7 @@ func (d *ArangoDBManager) Create(rootUser, rootPassword string) error {
 	return nil
 }
 
-func (d *ArangoDBManager) Migrate() error {
+func (d *ArangoDBManager) Migrate(ctx context.Context) error {
 	local := reflect.ValueOf(d.localSeed)
 
 	if local.Kind() != reflect.Ptr {
@@ -106,7 +122,7 @@ func (d *ArangoDBManager) Migrate() error {
 			colType = colTypeEdge
 		}
 
-		_, err := d.db.Run(&arangolite.CreateCollection{
+		err := d.db.Run(ctx, nil, &requests.CreateCollection{
 			Name: colName,
 			Type: colType,
 		})
@@ -118,19 +134,26 @@ func (d *ArangoDBManager) Migrate() error {
 	return nil
 }
 
-func (d *ArangoDBManager) Drop(rootUser, rootPassword string) error {
-	d.db.SwitchDatabase("_system").SwitchUser(rootUser, rootPassword)
-	defer func() { d.db.SwitchDatabase(d.Name).SwitchUser(d.User, d.UserPassword) }()
+func (d *ArangoDBManager) Drop(ctx context.Context, rootUser, rootPassword string) error {
+	d.db.Options(
+		arangolite.OptBasicAuth(rootUser, rootPassword),
+		arangolite.OptDatabaseName("_system"),
+	)
+	defer func() {
+		d.db.Options(
+			arangolite.OptBasicAuth(d.User, d.UserPassword),
+			arangolite.OptDatabaseName(d.Name),
+		)
+	}()
 
-	_, err := d.db.Run(&arangolite.DropDatabase{Name: d.Name})
-	if err != nil {
+	if err := d.db.Run(ctx, nil, &requests.DropDatabase{Name: d.Name}); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (d *ArangoDBManager) LoadDistantSeed() error {
+func (d *ArangoDBManager) LoadDistantSeed(ctx context.Context) error {
 	local := reflect.ValueOf(d.localSeed)
 	distant := reflect.ValueOf(d.distantSeed)
 
@@ -162,17 +185,17 @@ func (d *ArangoDBManager) LoadDistantSeed() error {
 		colName := local.Type().Field(i).Name
 		colName = strings.ToLower(colName[0:1]) + colName[1:]
 
-		var q *arangolite.Query
+		var q *requests.AQL
 
 		if local.Type().Field(i).Tag.Get("check") == "keyOnly" {
-			q = arangolite.NewQuery(`
+			q = requests.NewAQL(`
 				FOR x IN @@colName
 					FOR y IN @seed != null ? @seed : []
 					FILTER x._key == y._key
 					RETURN DISTINCT x
 			`).Bind("seed", localField.Interface()).Bind("@colName", colName)
 		} else {
-			q = arangolite.NewQuery(`
+			q = requests.NewAQL(`
 				FOR x IN @@colName
 				LET i = UNSET(x,"_id","_rev")
 					FOR y IN @seed != null ? @seed : []
@@ -183,12 +206,9 @@ func (d *ArangoDBManager) LoadDistantSeed() error {
 			`).Bind("seed", localField.Interface()).Bind("@colName", colName)
 		}
 
-		r, err := d.db.Run(q)
-		if err != nil {
+		if err := d.db.Run(ctx, distantField.Addr().Interface(), q); err != nil {
 			return err
 		}
-
-		json.Unmarshal(r, distantField.Addr().Interface())
 
 		if distantField.Len() < localField.Len() {
 			return fmt.Errorf("seeds not synchronized: %s", colName)
@@ -198,7 +218,7 @@ func (d *ArangoDBManager) LoadDistantSeed() error {
 	return nil
 }
 
-func (d *ArangoDBManager) SyncSeeds() error {
+func (d *ArangoDBManager) SyncSeeds(ctx context.Context) error {
 	local := reflect.ValueOf(d.localSeed)
 
 	if local.Kind() != reflect.Ptr {
@@ -231,10 +251,10 @@ func (d *ArangoDBManager) SyncSeeds() error {
 		colName := local.Type().Field(i).Name
 		colName = strings.ToLower(colName[0:1]) + colName[1:]
 
-		var q *arangolite.Query
+		var q *requests.AQL
 
 		if local.Type().Field(i).Tag.Get("seed") == "forceUpdate" {
-			q = arangolite.NewQuery(`
+			q = requests.NewAQL(`
 				FOR x IN @seed
 				FILTER x._key != "" && x._key != NULL
 				UPSERT { '_key': x._key }
@@ -242,19 +262,19 @@ func (d *ArangoDBManager) SyncSeeds() error {
 				REPLACE x IN @@colName
 			`).Bind("seed", field.Interface()).Bind("@colName", colName)
 		} else {
-			q = arangolite.NewQuery(`
+			q = requests.NewAQL(`
 				FOR x IN @seed
 				FILTER x._key != "" && x._key != NULL
                 INSERT x IN @@colName OPTIONS { ignoreErrors: true }
 			`).Bind("seed", field.Interface()).Bind("@colName", colName)
 		}
 
-		if _, err := d.db.Run(q); err != nil {
+		if err := d.db.Run(ctx, nil, q); err != nil {
 			return err
 		}
 	}
 
-	if err := d.LoadDistantSeed(); err != nil {
+	if err := d.LoadDistantSeed(ctx); err != nil {
 		return err
 	}
 
