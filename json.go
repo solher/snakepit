@@ -1,6 +1,8 @@
 package snakepit
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -8,13 +10,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
-	"time"
 
-	"golang.org/x/net/context"
-
-	"github.com/Sirupsen/logrus"
 	"github.com/ansel1/merry"
-	"github.com/pquerna/ffjson/ffjson"
 )
 
 var (
@@ -41,7 +38,7 @@ func (j *JSON) RenderError(
 	apiError APIError,
 	e error,
 ) {
-	if entry, err := GetResLogEntry(ctx); err == nil {
+	if entry, err := GetLogger(ctx); err == nil {
 		file, line := merry.Location(e)
 		*entry = *entry.WithError(e).WithField("location", fmt.Sprintf("%s:%d", file, line))
 
@@ -82,10 +79,9 @@ func (j *JSON) UnmarshalBody(
 	body io.ReadCloser,
 	obj interface{},
 ) bool {
-	logger, _ := GetLogger(ctx)
 	buffer, _ := ioutil.ReadAll(body)
 
-	if err := j.Unmarshal(logger, "Request body", buffer, obj); err != nil {
+	if err := json.Unmarshal(buffer, obj); err != nil {
 		j.RenderError(ctx, w, http.StatusBadRequest, APIBodyDecoding, err)
 		return false
 	}
@@ -100,7 +96,6 @@ func (j *JSON) UnmarshalBodyBulk(
 	objSlice interface{},
 ) (bool, bool) {
 	bulk := false
-	logger, _ := GetLogger(ctx)
 	buffer, _ := ioutil.ReadAll(body)
 
 	if len(buffer) < 2 {
@@ -114,7 +109,7 @@ func (j *JSON) UnmarshalBodyBulk(
 		bulk = true
 	}
 
-	if err := j.Unmarshal(logger, "Request body", buffer, objSlice); err != nil {
+	if err := json.Unmarshal(buffer, objSlice); err != nil {
 		j.RenderError(ctx, w, http.StatusBadRequest, APIBodyDecoding, err)
 		return false, false
 	}
@@ -122,39 +117,29 @@ func (j *JSON) UnmarshalBodyBulk(
 	return true, bulk
 }
 
-func (j *JSON) Unmarshal(
-	l *logrus.Entry,
-	name string,
-	raw []byte,
-	obj interface{},
-) error {
-	start := time.Now()
+// func (j *JSON) Unmarshal(
+// 	l *logrus.Entry,
+// 	name string,
+// 	raw []byte,
+// 	obj interface{},
+// ) error {
+// 	if err := json.Unmarshal(raw, obj); err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
-	if err := ffjson.Unmarshal(raw, obj); err != nil {
-		return err
-	}
-
-	LogTime(l, name+" unmarshalling", start)
-
-	return nil
-}
-
-func (j *JSON) Marshal(
-	l *logrus.Entry,
-	name string,
-	obj interface{},
-) ([]byte, error) {
-	start := time.Now()
-
-	buf, err := ffjson.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	LogTime(l, name+" marshalling", start)
-
-	return buf, nil
-}
+// func (j *JSON) Marshal(
+// 	l *logrus.Entry,
+// 	name string,
+// 	obj interface{},
+// ) ([]byte, error) {
+// 	buf, err := json.Marshal(obj)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return buf, nil
+// }
 
 func (j *JSON) renderJSON(
 	ctx context.Context,
@@ -163,11 +148,8 @@ func (j *JSON) renderJSON(
 	object interface{},
 ) {
 	j.writeHeaders(w, status)
-
-	logger, _ := GetLogger(ctx)
-
 	// Encode
-	buf, err := j.Marshal(logger, "Response", &object)
+	buf, err := json.Marshal(&object)
 	if err != nil {
 		j.renderRenderingError(ctx, w, err)
 		return
@@ -179,9 +161,6 @@ func (j *JSON) renderJSON(
 		j.renderRenderingError(ctx, w, err)
 		return
 	}
-
-	// We no longer need the buffer so we pool it.
-	ffjson.Pool(buf)
 }
 
 func (j *JSON) renderRenderingError(
@@ -189,7 +168,7 @@ func (j *JSON) renderRenderingError(
 	w http.ResponseWriter,
 	e error,
 ) {
-	if entry, err := GetResLogEntry(ctx); err == nil {
+	if entry, err := GetLogger(ctx); err == nil {
 		*entry = *entry.WithError(e).WithField("stacktrace", j.stacktrace())
 	}
 
@@ -201,13 +180,10 @@ func (j *JSON) renderRenderingError(
 	j.writeHeaders(w, status)
 
 	// Encode
-	buf, _ := ffjson.Marshal(apiErr)
+	buf, _ := json.Marshal(apiErr)
 
 	// Write the buffer
 	_, _ = w.Write(buf)
-
-	// We no longer need the buffer so we pool it.
-	ffjson.Pool(buf)
 }
 
 func (j *JSON) writeHeaders(w http.ResponseWriter, status int) {

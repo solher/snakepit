@@ -5,9 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-
-	"github.com/pressly/chi"
-	"golang.org/x/net/context"
 )
 
 type swaggerConf struct {
@@ -26,7 +23,7 @@ type Swagger struct {
 	conf []byte
 }
 
-func NewSwagger(basePath, scheme string) func(next chi.Handler) chi.Handler {
+func NewSwagger(basePath, scheme string) func(next http.Handler) http.Handler {
 	path := "./swagger.json"
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		path = os.Getenv("HOME") + "/swagger.json"
@@ -55,8 +52,8 @@ func NewSwagger(basePath, scheme string) func(next chi.Handler) chi.Handler {
 	return swagger.middleware
 }
 
-func (rec *Swagger) middleware(next chi.Handler) chi.Handler {
-	return chi.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (rec *Swagger) middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/swagger" {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET")
@@ -68,6 +65,6 @@ func (rec *Swagger) middleware(next chi.Handler) chi.Handler {
 			return
 		}
 
-		next.ServeHTTPC(ctx, w, r)
+		next.ServeHTTP(w, r)
 	})
 }

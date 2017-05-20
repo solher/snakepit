@@ -1,8 +1,6 @@
 package snakepit
 
 import (
-	"time"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -45,10 +43,6 @@ func NewHandler(
 	}
 }
 
-func (h *Handler) LogTime(logger *logrus.Entry, start time.Time) {
-	LogTime(logger, "Handler building", start)
-}
-
 func NewController(
 	c *viper.Viper,
 	l *logrus.Entry,
@@ -67,10 +61,6 @@ func NewValidator(
 	return &Validator{
 		Logger: l,
 	}
-}
-
-func (v *Validator) LogTime(start time.Time) {
-	LogTime(v.Logger, "Validation", start)
 }
 
 func NewInteractor(
